@@ -1,0 +1,61 @@
+version: '3'
+
+networks:
+  senderman:
+    driver: bridge
+services:
+  nginx:
+    build:
+      context: docker/nginx
+    ports:
+      - 8080:80
+    depends_on:
+      - php
+    networks:
+      - senderman
+    volumes:
+      - .:/usr/share/nginx/html/senderman
+  php:
+    build: 
+      context: docker/php
+    depends_on:
+      - redis
+      - db
+    networks:
+      - senderman
+    volumes:
+      - .:/usr/share/nginx/html/senderman
+  queue-worker:
+    build:
+      context: docker/php
+    depends_on:
+      - redis
+      - db
+    networks:
+      - senderman
+    volumes:
+      - .:/usr/share/nginx/html/senderman
+    command: php artisan queue:work redis --queue=messages
+  db:
+    image: mysql:5.7.23
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: "yes"
+      MYSQL_HOST: ${DB_HOST}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "33060:3306"
+    volumes:
+      - "mysql-data:/var/lib/mysql"
+    networks:
+    - senderman
+  redis:
+    image: redis
+    networks:
+      - senderman
+volumes:
+    mysql-data:
